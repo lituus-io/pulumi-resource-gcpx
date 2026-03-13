@@ -1,0 +1,9 @@
+name: gcpx-dbt-multi-sql
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+outputs:
+  stgOrdersTableRef: ${stgOrders.modelOutput.tableRef}
+  stgUsersTableRef: ${stgUsers.modelOutput.tableRef}
+  martRevenueTableRef: ${martRevenue.modelOutput.tableRef}

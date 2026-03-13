@@ -1,0 +1,5 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-dbt-model-crud:gcpProject: my-gcp-project
+  project: my-gcp-project
+encryptionsalt: v1:zrVyzaKWBkM=:v1:6dFVObvSsq4wr3gc:/6d5eI8XabHENsTNUcY7YzGAyeyDcw==

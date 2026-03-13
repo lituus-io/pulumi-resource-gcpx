@@ -1,0 +1,12 @@
+resources:
+  dailyRefresh:
+    type: gcpx:scheduler/sqlJob:SqlJob
+    properties:
+      project: ${gcpProject}
+      region: ${region}
+      name: daily-mart-refresh
+      sql: ${martRevenue.modelOutput.resolvedDdl}
+      schedule: "0 5 * * *"
+      serviceAccount: ${serviceAccount}
+      paused: true
+      description: Daily refresh of mart_revenue table

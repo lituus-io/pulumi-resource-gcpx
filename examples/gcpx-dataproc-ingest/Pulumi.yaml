@@ -1,0 +1,40 @@
+name: gcpx-dataproc-ingest
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+  region:
+    type: string
+    default: northamerica-northeast1
+  serviceAccount:
+    type: string
+resources:
+  testIngestJob:
+    type: gcpx:dataproc/ingestJob:IngestJob
+    properties:
+      project: ${gcpProject}
+      region: ${region}
+      name: e2e-test-ingest
+      databaseType: postgres
+      connectionString: "jdbc:postgresql://10.0.0.1:5432/sourcedb"
+      secret: "projects/${gcpProject}/secrets/db-pw/versions/latest"
+      query: "SELECT 1 AS id, 'test' AS name"
+      destination: gcs
+      landingBucket: "${gcpProject}-landing"
+      imageUri: "gcr.io/${gcpProject}/spark:latest"
+      scriptUri: "gs://${gcpProject}-scripts/ingest/main.py"
+      jarUris:
+        - "gs://spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.36.1.jar"
+      serviceAccount: ${serviceAccount}
+      stagingBucket: "${gcpProject}-staging"
+      processBucket: "${gcpProject}-process"
+      subnetworkUri: "projects/${gcpProject}/regions/${region}/subnetworks/default"
+      schedule: "0 5 * * *"
+      timeZone: America/Toronto
+      paused: true
+      description: "E2E test ingest job - paused, will not execute"
+      retryCount: 3
+outputs:
+  workflowName: ${testIngestJob.workflowName}
+  schedulerJobName: ${testIngestJob.schedulerJobName}
+  jobState: ${testIngestJob.state}

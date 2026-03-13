@@ -1,0 +1,1 @@
+CAST({{ amount_cents }} AS FLOAT64) / 100.0

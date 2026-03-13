@@ -1,0 +1,7 @@
+resources:
+  stgEvents:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_events
+      sql: "SELECT 1 as id, 'test' as source"
+      context: ${dbtProject.context}

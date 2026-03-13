@@ -1,0 +1,35 @@
+resources:
+  stgOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_orders
+      sql:
+        fn::readFile: sql/stg_orders.sql
+      context: ${dbtProject.context}
+    options:
+      dependsOn:
+        - ${rawEventsSchema}
+
+  stgUsers:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_users
+      sql:
+        fn::readFile: sql/stg_users.sql
+      context: ${dbtProject.context}
+    options:
+      dependsOn:
+        - ${rawEventsSchema}
+
+  martRevenue:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: mart_revenue
+      sql:
+        fn::readFile: sql/mart_revenue.sql
+      context: ${dbtProject.context}
+      macros:
+        cents_to_dollars: ${centsToDollars.macroOutput}
+      modelRefs:
+        stg_orders: ${stgOrders.modelOutput}
+        stg_users: ${stgUsers.modelOutput}

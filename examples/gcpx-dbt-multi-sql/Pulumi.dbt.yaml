@@ -1,0 +1,87 @@
+resources:
+  exampleDs:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_multi_sql
+      location: northamerica-northeast1
+
+  # Source tables - must exist before staging views reference them.
+  ordersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: orders
+
+  ordersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: ${ordersTable.tableId}
+      schema:
+        - name: order_id
+          type: INT64
+          mode: REQUIRED
+        - name: user_id
+          type: INT64
+          mode: REQUIRED
+        - name: amount_cents
+          type: INT64
+        - name: status
+          type: STRING
+        - name: created_at
+          type: TIMESTAMP
+
+  usersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: users
+
+  usersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: ${usersTable.tableId}
+      schema:
+        - name: user_id
+          type: INT64
+          mode: REQUIRED
+        - name: email
+          type: STRING
+        - name: region
+          type: STRING
+        - name: created_at
+          type: TIMESTAMP
+
+  # Shared dbt project context — all models reference this.
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      sources:
+        raw_src:
+          dataset: ${exampleDs.datasetId}
+          tables:
+            - orders
+            - users
+      declaredModels:
+        - stg_orders
+        - stg_users
+        - mart_revenue
+      declaredMacros:
+        - cents_to_dollars
+
+  # Reusable macro: convert cents to dollars.
+  centsToDollars:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: cents_to_dollars
+      sql: "CAST(amount_cents AS FLOAT64) / 100.0"
+      args:
+        - amount_cents

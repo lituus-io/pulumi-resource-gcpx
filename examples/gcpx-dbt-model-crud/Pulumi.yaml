@@ -1,0 +1,29 @@
+name: gcpx-dbt-model-crud
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+resources:
+  exampleDs:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_dbt_crud
+      location: northamerica-northeast1
+
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+
+  stgOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_orders
+      sql: "SELECT 1 as id, 'pending' as status, 1999 as amount_cents"
+      context: ${dbtProject.context}
+outputs:
+  materialization: ${stgOrders.materialization}
+  tableRef: ${stgOrders.modelOutput.tableRef}
+  resolvedSql: ${stgOrders.modelOutput.resolvedSql}

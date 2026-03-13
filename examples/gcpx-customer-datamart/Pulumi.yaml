@@ -1,0 +1,147 @@
+name: gcpx-customer-datamart
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+  region:
+    type: string
+    default: northamerica-northeast1
+  serviceAccount:
+    type: string
+resources:
+  exampleDs:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_datamart
+      location: northamerica-northeast1
+
+  # ═══ SEED TABLES ═══
+  rawCustomersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: raw_customers
+
+  rawCustomersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: ${rawCustomersTable.tableId}
+      schema:
+        - name: customer_id
+          type: INT64
+          mode: REQUIRED
+        - name: full_name
+          type: STRING
+        - name: email
+          type: STRING
+        - name: created_at
+          type: TIMESTAMP
+
+  rawOrdersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: raw_orders
+
+  rawOrdersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: ${rawOrdersTable.tableId}
+      schema:
+        - name: order_id
+          type: INT64
+          mode: REQUIRED
+        - name: customer_id
+          type: INT64
+        - name: order_status
+          type: STRING
+        - name: amount_cents
+          type: INT64
+        - name: order_date
+          type: DATE
+
+  # ═══ DBT PROJECT ═══
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      vars:
+        recent_days: "90"
+      sources:
+        raw:
+          dataset: ${exampleDs.datasetId}
+          tables:
+            - raw_customers
+            - raw_orders
+      declaredModels:
+        - stg_customers
+        - stg_orders
+        - dim_customers
+        - fct_orders
+      declaredMacros:
+        - cents_to_dollars
+
+  # ═══ MACRO ═══
+  centsToDollars:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: cents_to_dollars
+      args:
+        - amount_cents
+      sql:
+        fn::readFile: sql/cents_to_dollars.sql
+
+  # ═══ STAGING MODELS (views) ═══
+  stgCustomers:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_customers
+      context: ${dbtProject.context}
+      sql:
+        fn::readFile: sql/stg_customers.sql
+
+  stgOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_orders
+      context: ${dbtProject.context}
+      sql:
+        fn::readFile: sql/stg_orders.sql
+
+  # ═══ DIMENSION TABLE ═══
+  dimCustomers:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: dim_customers
+      context: ${dbtProject.context}
+      modelRefs:
+        stg_customers: ${stgCustomers.modelOutput}
+      sql:
+        fn::readFile: sql/dim_customers.sql
+
+  # ═══ FACT TABLE (incremental) ═══
+  fctOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: fct_orders
+      context: ${dbtProject.context}
+      macros:
+        cents_to_dollars: ${centsToDollars.macroOutput}
+      modelRefs:
+        stg_orders: ${stgOrders.modelOutput}
+      sql:
+        fn::readFile: sql/fct_orders.sql
+
+outputs:
+  dimCustomersRef: ${dimCustomers.modelOutput.tableRef}
+  fctOrdersRef: ${fctOrders.modelOutput.tableRef}
+  fctOrdersDdl: ${fctOrders.modelOutput.resolvedDdl}
+  fctOrdersMaterialization: ${fctOrders.materialization}

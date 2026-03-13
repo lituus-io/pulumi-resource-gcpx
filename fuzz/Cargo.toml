@@ -1,0 +1,71 @@
+[package]
+name = "pulumi-resource-gcpx-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+pulumi-resource-gcpx = { path = ".." }
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_scanner"
+path = "fuzz_targets/fuzz_scanner.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_config_iter"
+path = "fuzz_targets/fuzz_config_iter.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_normalize_type"
+path = "fuzz_targets/fuzz_normalize_type.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_expand_macros"
+path = "fuzz_targets/fuzz_expand_macros.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_workflow_yaml"
+path = "fuzz_targets/fuzz_workflow_yaml.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_resolve"
+path = "fuzz_targets/fuzz_resolve.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_snapshot_ddl"
+path = "fuzz_targets/fuzz_snapshot_ddl.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_preprocess"
+path = "fuzz_targets/fuzz_preprocess.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_snapshot_workflow"
+path = "fuzz_targets/fuzz_snapshot_workflow.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_dataproc_workflow"
+path = "fuzz_targets/fuzz_dataproc_workflow.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_database_type"
+path = "fuzz_targets/fuzz_database_type.rs"
+doc = false

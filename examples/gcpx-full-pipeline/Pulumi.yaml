@@ -1,0 +1,98 @@
+name: gcpx-full-pipeline
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+  region:
+    type: string
+    default: northamerica-northeast1
+  serviceAccount:
+    type: string
+resources:
+  exampleDs:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_pipeline
+      location: northamerica-northeast1
+
+  # 1. BigQuery table for raw event ingestion with partitioning and clustering.
+  rawTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: raw_events
+      description: Raw events table
+      labels:
+        env: dev
+        managed-by: pulumi
+      timePartitioning:
+        type: DAY
+
+  # 2. Schema for raw events table.
+  rawSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      tableId: ${rawTable.tableId}
+      schema:
+        - name: event_ts
+          type: TIMESTAMP
+          mode: REQUIRED
+        - name: region
+          type: STRING
+        - name: user_id
+          type: STRING
+          mode: REQUIRED
+        - name: event_name
+          type: STRING
+        - name: amount_cents
+          type: INT64
+
+  # 3. dbt project context shared by models and macros.
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+
+  # 4. Reusable SQL macro.
+  centsToDollars:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: cents_to_dollars
+      sql: "CAST(amount_cents AS FLOAT64) / 100.0"
+      args:
+        - amount_cents
+
+  # 5. dbt model — materializes a BigQuery table via CREATE OR REPLACE.
+  stgOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_orders
+      sql: "SELECT 1 as id, 'pending' as status, 1999 as amount_cents"
+      context: ${dbtProject.context}
+
+  # 6. Scheduled SQL execution via Cloud Scheduler + GCP Workflows.
+  refreshJob:
+    type: gcpx:scheduler/sqlJob:SqlJob
+    properties:
+      project: ${gcpProject}
+      region: ${region}
+      name: refresh-stg-orders
+      sql: "SELECT 1"
+      schedule: "0 5 * * *"
+      serviceAccount: ${serviceAccount}
+      paused: true
+      description: Daily refresh of stg_orders
+outputs:
+  tableType: ${rawTable.tableType}
+  rawTableId: ${rawTable.tableId}
+  schemaFingerprint: ${rawSchema.schemaFingerprint}
+  macroName: ${centsToDollars.macroOutput.name}
+  modelMaterialization: ${stgOrders.materialization}
+  modelTableRef: ${stgOrders.modelOutput.tableRef}
+  jobState: ${refreshJob.state}
+  jobWorkflowName: ${refreshJob.workflowName}

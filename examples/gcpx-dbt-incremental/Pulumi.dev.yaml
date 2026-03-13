@@ -1,0 +1,5 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-dbt-incremental:gcpProject: my-gcp-project
+  project: my-gcp-project
+encryptionsalt: v1:UeD8MD9MDSI=:v1:bzffHLBQf9+HIZLU:K0nQWzagHWy7KpLuovYkGY/1JUvLEQ==

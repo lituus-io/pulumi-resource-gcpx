@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── Binary builds (6 platforms) ──────────────────────────────────────
+
+  build-binary:
+    name: Binary (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            method: zigbuild
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            method: zigbuild
+          - name: darwin-amd64
+            runner: macos-15
+            target: x86_64-apple-darwin
+            method: native
+          - name: darwin-arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            method: native
+          - name: windows-amd64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            method: native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+
+      - name: Link dependency for Cargo path resolution (Unix)
+        if: runner.os != 'Windows'
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+
+      - name: Link dependency for Cargo path resolution (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\..\pulumi-rs-yaml" -Target "$env:GITHUB_WORKSPACE\_deps\pulumi-rs-yaml"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cargo-zigbuild
+        if: matrix.method == 'zigbuild'
+        run: pip install cargo-zigbuild
+
+      - name: Add Rust target (zigbuild)
+        if: matrix.method == 'zigbuild'
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build (zigbuild)
+        if: matrix.method == 'zigbuild'
+        run: cargo zigbuild --release --target ${{ matrix.target }}
+
+      - name: Build (native)
+        if: matrix.method == 'native'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binaries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/pulumi-resource-gcpx dist/
+          cd dist && tar czf ../pulumi-resource-gcpx-${{ matrix.name }}.tar.gz *
+
+      - name: Package binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.target }}/release/pulumi-resource-gcpx.exe dist/
+          Compress-Archive -Path dist/* -DestinationPath pulumi-resource-gcpx-${{ matrix.name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.name }}
+          path: pulumi-resource-gcpx-${{ matrix.name }}.*
+
+  # ── Python wheel builds (5 platforms) ────────────────────────────────
+
+  build-wheel:
+    name: Wheel (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            plat-name: manylinux_2_28_x86_64
+            method: zigbuild
+          - name: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            plat-name: manylinux_2_28_aarch64
+            method: zigbuild
+          - name: macos-x86_64
+            runner: macos-15
+            target: x86_64-apple-darwin
+            plat-name: macosx_10_12_x86_64
+            method: native
+          - name: macos-arm64
+            runner: macos-15
+            target: aarch64-apple-darwin
+            plat-name: macosx_11_0_arm64
+            method: native
+          - name: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            plat-name: win_amd64
+            method: native
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+
+      - name: Link dependency for Cargo path resolution (Unix)
+        if: runner.os != 'Windows'
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+
+      - name: Link dependency for Cargo path resolution (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\..\pulumi-rs-yaml" -Target "$env:GITHUB_WORKSPACE\_deps\pulumi-rs-yaml"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wheel-${{ matrix.name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install setuptools wheel build cargo-zigbuild
+
+      - name: Build binary (zigbuild)
+        if: matrix.method == 'zigbuild'
+        working-directory: python
+        run: |
+          WORKSPACE_ROOT="$(cd .. && pwd)"
+          BIN_DIR="$(pwd)/python/pulumi_resource_gcpx/bin"
+          mkdir -p "$BIN_DIR"
+          RELEASE_DIR="$WORKSPACE_ROOT/target/${{ matrix.target }}/release"
+          rustup target add ${{ matrix.target }}
+          cargo zigbuild --release --manifest-path "$WORKSPACE_ROOT/Cargo.toml" --target ${{ matrix.target }}
+          cp "$RELEASE_DIR/pulumi-resource-gcpx" "$BIN_DIR/"
+
+      - name: Build binary (native)
+        if: matrix.method == 'native'
+        working-directory: python
+        env:
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
+        run: bash build_binary.sh
+
+      - name: Build wheel
+        working-directory: python
+        run: python -m build --wheel -C="--build-option=--plat-name=${{ matrix.plat-name }}"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: python/dist/*.whl
+
+  # ── GitHub Release ───────────────────────────────────────────────────
+
+  release:
+    name: GitHub Release
+    needs: [build-binary, build-wheel]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect release files
+        run: |
+          mkdir release
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.whl' \) -exec cp {} release/ \;
+          cd release && sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+
+  # ── PyPI Publish ─────────────────────────────────────────────────────
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+
+      - name: Install twine
+        run: pip install twine
+
+      - name: Publish to PyPI via twine
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_PACKAGE }}
+        run: twine upload dist/*

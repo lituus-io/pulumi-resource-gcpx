@@ -1,0 +1,21 @@
+name: gcpx-full-e2e
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+  dataset:
+    type: string
+    default: gcpx_test
+  region:
+    type: string
+    default: northamerica-northeast1
+  serviceAccount:
+    type: string
+outputs:
+  datasetId: ${mainDataset.datasetId}
+  rawEventsTableId: ${rawEventsTable.tableId}
+  schemaFingerprint: ${rawEventsSchema.schemaFingerprint}
+  stgOrdersTableRef: ${stgOrders.modelOutput.tableRef}
+  martRevenueTableRef: ${martRevenue.modelOutput.tableRef}
+  udfId: ${centsToDollarsUdf.routineId}
+  jobState: ${dailyRefresh.state}

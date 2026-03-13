@@ -1,0 +1,33 @@
+name: gcpx-dbt-incremental
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+resources:
+  exampleDs:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_dbt_incr
+      location: northamerica-northeast1
+
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${exampleDs.datasetId}
+      declaredModels:
+        - daily_events
+
+  dailyEvents:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: daily_events
+      sql:
+        fn::readFile: sql/daily_events.sql
+      context: ${dbtProject.context}
+outputs:
+  materialization: ${dailyEvents.materialization}
+  tableRef: ${dailyEvents.modelOutput.tableRef}
+  resolvedDdl: ${dailyEvents.modelOutput.resolvedDdl}
+  workflowYaml: ${dailyEvents.modelOutput.workflowYaml}

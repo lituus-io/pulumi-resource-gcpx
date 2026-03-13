@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly on Monday at 9 AM UTC
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - name: Install cargo-audit
+        run: RUSTUP_TOOLCHAIN=stable cargo install cargo-audit --locked
+      - name: Run audit
+        run: cargo audit
+
+  deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - name: Install cargo-deny
+        run: RUSTUP_TOOLCHAIN=stable cargo install cargo-deny --locked
+      - name: Run cargo-deny
+        run: cargo deny check
+
+  clippy-security:
+    name: Clippy Security Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run Clippy with security lints
+        run: |
+          cargo clippy --all-targets -- \
+            -W clippy::unwrap_used \
+            -W clippy::expect_used \
+            -W clippy::panic
