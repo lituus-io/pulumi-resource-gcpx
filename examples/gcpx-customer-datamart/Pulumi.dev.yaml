@@ -1,0 +1,6 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-customer-datamart:gcpProject: my-gcp-project
+  gcpx-customer-datamart:serviceAccount: sa@my-gcp-project.iam.gserviceaccount.com
+  project: my-gcp-project
+encryptionsalt: v1:Y9khl//b4MI=:v1:Rn+Ww9DR4Or7xioU:a03cauM8XN5Gzdq3Z21+CXbqGbk9UA==

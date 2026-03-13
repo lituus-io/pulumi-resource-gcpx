@@ -1,0 +1,1839 @@
+{
+    "name": "gcpx",
+    "displayName": "GCP Extensions",
+    "version": "0.1.0",
+    "description": "Extended GCP resource management: BigQuery schema evolution, table lifecycle, dbt-style SQL models, and scheduled SQL execution.",
+    "keywords": [
+        "gcp",
+        "bigquery",
+        "schema",
+        "ddl",
+        "dbt",
+        "scheduler"
+    ],
+    "homepage": "https://github.com/lituus-io/pulumi-resource-gcpx",
+    "repository": "https://github.com/lituus-io/pulumi-resource-gcpx",
+    "publisher": "gcpx",
+    "meta": {
+        "moduleFormat": "(.*)(?:/[^/]*)"
+    },
+    "language": {},
+    "config": {},
+    "types": {
+        "gcpx:bigquery/schemaField:SchemaField": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Column name. Must match [a-zA-Z_][a-zA-Z0-9_]{0,299}."
+                },
+                "type": {
+                    "type": "string",
+                    "description": "BigQuery data type (STRING, INT64, FLOAT64, BOOL, BYTES, DATE, DATETIME, TIME, TIMESTAMP, GEOGRAPHY, NUMERIC, BIGNUMERIC, JSON, STRUCT/RECORD)."
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Column mode: NULLABLE (default), REQUIRED, or REPEATED.",
+                    "default": "NULLABLE"
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Column description."
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/types/gcpx:bigquery/schemaField:SchemaField"
+                    },
+                    "description": "Nested fields for STRUCT/RECORD columns."
+                },
+                "alter": {
+                    "type": "string",
+                    "description": "Schema evolution action: 'rename', 'insert', or 'delete'. Omit for unchanged columns."
+                },
+                "alterFrom": {
+                    "type": "string",
+                    "description": "Original column name when alter is 'rename'."
+                },
+                "defaultValueExpression": {
+                    "type": "string",
+                    "description": "SQL expression for the column's default value (e.g., 'CURRENT_TIMESTAMP()')."
+                },
+                "roundingMode": {
+                    "type": "string",
+                    "description": "Rounding mode for NUMERIC/BIGNUMERIC columns: ROUND_HALF_AWAY_FROM_ZERO or ROUND_HALF_EVEN."
+                }
+            },
+            "required": [
+                "name",
+                "type"
+            ]
+        },
+        "gcpx:bigquery/viewDefinition:ViewDefinition": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "SQL query for the view."
+                },
+                "useLegacySql": {
+                    "type": "boolean",
+                    "description": "Whether to use legacy SQL. Defaults to false."
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "gcpx:bigquery/materializedViewDefinition:MaterializedViewDefinition": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "SQL query for the materialized view."
+                },
+                "enableRefresh": {
+                    "type": "boolean",
+                    "description": "Whether automatic refresh is enabled."
+                },
+                "refreshIntervalMs": {
+                    "type": "integer",
+                    "description": "Refresh interval in milliseconds."
+                }
+            },
+            "required": [
+                "query"
+            ]
+        },
+        "gcpx:bigquery/timePartitioning:TimePartitioning": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Partitioning type: DAY, HOUR, MONTH, or YEAR."
+                },
+                "field": {
+                    "type": "string",
+                    "description": "Field to partition by. If not set, uses _PARTITIONTIME pseudo column."
+                },
+                "expirationMs": {
+                    "type": "integer",
+                    "description": "Partition expiration in milliseconds."
+                }
+            },
+            "required": [
+                "type"
+            ]
+        },
+        "gcpx:bigquery/rangePartitioning:RangePartitioning": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "description": "Field to partition by."
+                },
+                "start": {
+                    "type": "integer",
+                    "description": "Start of range (inclusive)."
+                },
+                "end": {
+                    "type": "integer",
+                    "description": "End of range (exclusive)."
+                },
+                "interval": {
+                    "type": "integer",
+                    "description": "Width of each range partition."
+                }
+            },
+            "required": [
+                "field",
+                "start",
+                "end",
+                "interval"
+            ]
+        },
+        "gcpx:bigquery/externalDataConfiguration:ExternalDataConfiguration": {
+            "type": "object",
+            "properties": {
+                "sourceUris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "URIs of the data source (e.g., gs://bucket/path/*.csv)."
+                },
+                "sourceFormat": {
+                    "type": "string",
+                    "description": "Data format: CSV, NEWLINE_DELIMITED_JSON, AVRO, PARQUET, ORC, GOOGLE_SHEETS."
+                },
+                "autodetect": {
+                    "type": "boolean",
+                    "description": "Whether to auto-detect schema from source data."
+                },
+                "connectionId": {
+                    "type": "string",
+                    "description": "BigLake connection ID for accessing external data."
+                },
+                "csvOptions": {
+                    "type": "object",
+                    "properties": {
+                        "skipLeadingRows": {
+                            "type": "integer",
+                            "description": "Number of leading rows to skip."
+                        }
+                    }
+                }
+            },
+            "required": [
+                "sourceUris",
+                "sourceFormat"
+            ]
+        },
+        "gcpx:bigquery/routineArgument:RoutineArgument": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Argument name."
+                },
+                "dataType": {
+                    "type": "string",
+                    "description": "BigQuery data type (e.g., STRING, INT64, FLOAT64)."
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Argument mode: IN (default), OUT, or INOUT."
+                }
+            },
+            "required": [
+                "name",
+                "dataType"
+            ]
+        },
+        "gcpx:dbt/tableOptions:TableOptions": {
+            "type": "object",
+            "description": "BigQuery DDL OPTIONS clause for table/view/materialized_view creation.",
+            "properties": {
+                "requirePartitionFilter": {
+                    "type": "boolean",
+                    "description": "Require a partition filter in queries. Requires partition_by to be set."
+                },
+                "partitionExpirationDays": {
+                    "type": "integer",
+                    "description": "Number of days after which partitions expire. Requires partition_by to be set."
+                },
+                "friendlyName": {
+                    "type": "string",
+                    "description": "Human-readable table name."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Table description."
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Key-value labels."
+                },
+                "kmsKeyName": {
+                    "type": "string",
+                    "description": "Cloud KMS key for encryption."
+                },
+                "defaultCollationName": {
+                    "type": "string",
+                    "description": "Default collation for STRING columns (e.g., 'und:ci')."
+                },
+                "enableRefresh": {
+                    "type": "boolean",
+                    "description": "Enable automatic refresh for materialized views."
+                },
+                "refreshIntervalMinutes": {
+                    "type": "integer",
+                    "description": "Refresh interval in minutes for materialized views. Requires enableRefresh."
+                },
+                "maxStaleness": {
+                    "type": "string",
+                    "description": "Max staleness INTERVAL for materialized views (e.g., 'INTERVAL 4 HOUR')."
+                }
+            }
+        },
+        "gcpx:bigquery/consumerConstraints:ConsumerConstraints": {
+            "type": "object",
+            "description": "Config columns from downstream Models/Snapshots that must not be dropped by schema evolution.",
+            "properties": {
+                "uniqueKeys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "All unique_key columns across downstream consumers."
+                },
+                "partitionFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "All partition_by fields across downstream consumers."
+                },
+                "clusterColumns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "All cluster_by columns across downstream consumers."
+                }
+            }
+        },
+        "gcpx:dbt/sourceDefinition:SourceDefinition": {
+            "type": "object",
+            "properties": {
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID for this source."
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Table names in this source."
+                }
+            },
+            "required": [
+                "dataset",
+                "tables"
+            ]
+        },
+        "gcpx:dbt/projectContext:ProjectContext": {
+            "type": "object",
+            "description": "Context output from a dbt Project resource, consumed by Model resources.",
+            "properties": {
+                "gcpProject": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string"
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/types/gcpx:dbt/sourceDefinition:SourceDefinition"
+                    }
+                },
+                "declaredModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "declaredMacros": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "vars": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Project-level variables for {{ var('name') }} substitution."
+                }
+            }
+        },
+        "gcpx:dbt/macroOutput:MacroOutput": {
+            "type": "object",
+            "description": "Output from a dbt Macro resource, consumed by Model resources.",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sql": {
+                    "type": "string"
+                }
+            }
+        },
+        "gcpx:dbt/modelOutput:ModelOutput": {
+            "type": "object",
+            "description": "Output from a dbt Model resource. Contains resolved SQL, DDL, and workflow YAML for downstream consumption.",
+            "properties": {
+                "materialization": {
+                    "type": "string",
+                    "description": "Materialization type: table, view, materialized_view, or ephemeral."
+                },
+                "tableRef": {
+                    "type": "string",
+                    "description": "Fully-qualified BigQuery table reference (e.g., `project.dataset.table`)."
+                },
+                "resolvedSql": {
+                    "type": "string",
+                    "description": "Resolved SQL with all refs, sources, and macros expanded."
+                },
+                "resolvedDdl": {
+                    "type": "string",
+                    "description": "Full DDL statement (e.g., CREATE OR REPLACE TABLE ... AS ...)."
+                },
+                "resolvedCtesJson": {
+                    "type": "string",
+                    "description": "JSON array of [name, sql] CTE pairs for ephemeral consumption."
+                },
+                "resolvedBody": {
+                    "type": "string",
+                    "description": "SQL body without WITH clause."
+                },
+                "workflowYaml": {
+                    "type": "string",
+                    "description": "Pre-built GCP Workflow YAML for scheduling this model's DDL execution."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "Clean table name (e.g., 'dim_customers') for downstream TableSchema composition."
+                },
+                "schedulerSql": {
+                    "type": "string",
+                    "description": "MERGE SQL for incremental models, or DDL for table/view models. Used by SqlJob."
+                }
+            }
+        }
+    },
+    "provider": {
+        "description": "The GCP Extensions provider.",
+        "type": "object",
+        "inputProperties": {},
+        "requiredInputs": []
+    },
+    "resources": {
+        "gcpx:bigquery/tableSchema:TableSchema": {
+            "description": "Manages BigQuery table schema evolution via ALTER TABLE DDL. Use alongside gcp:bigquery:Table (with ignoreChanges: [schema]) to enable column renames, inserts, and deletes without table replacement.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "BigQuery table ID."
+                },
+                "schema": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/types/gcpx:bigquery/schemaField:SchemaField"
+                    },
+                    "description": "Desired table schema. Use 'alter' and 'alterFrom' fields for schema evolution."
+                },
+                "consumerConstraints": {
+                    "$ref": "#/types/gcpx:bigquery/consumerConstraints:ConsumerConstraints",
+                    "description": "Config columns from downstream Models/Snapshots that must not be dropped by schema evolution."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "dataset",
+                "tableId",
+                "schema"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "BigQuery table ID."
+                },
+                "schema": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/types/gcpx:bigquery/schemaField:SchemaField"
+                    },
+                    "description": "Current table schema (clean, without alter annotations)."
+                },
+                "resultSchemaJson": {
+                    "type": "string",
+                    "description": "JSON representation of the current clean schema."
+                },
+                "schemaFingerprint": {
+                    "type": "string",
+                    "description": "Hash fingerprint for quick schema equality checks."
+                },
+                "pendingDdl": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "DDL statements that would be executed (populated during preview)."
+                }
+            },
+            "required": [
+                "project",
+                "dataset",
+                "tableId",
+                "schema",
+                "resultSchemaJson",
+                "schemaFingerprint"
+            ]
+        },
+        "gcpx:bigquery/table:Table": {
+            "description": "Manages BigQuery table, view, or materialized view lifecycle. Schema is intentionally NOT compared in diffs \u2014 use gcpx:bigquery/tableSchema:TableSchema for schema evolution.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "BigQuery table ID."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Table description."
+                },
+                "friendlyName": {
+                    "type": "string",
+                    "description": "Friendly name for the table."
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Key-value labels."
+                },
+                "view": {
+                    "$ref": "#/types/gcpx:bigquery/viewDefinition:ViewDefinition",
+                    "description": "View definition. Mutually exclusive with materializedView."
+                },
+                "materializedView": {
+                    "$ref": "#/types/gcpx:bigquery/materializedViewDefinition:MaterializedViewDefinition",
+                    "description": "Materialized view definition. Mutually exclusive with view."
+                },
+                "timePartitioning": {
+                    "$ref": "#/types/gcpx:bigquery/timePartitioning:TimePartitioning",
+                    "description": "Time-based partitioning configuration. Mutually exclusive with rangePartitioning."
+                },
+                "rangePartitioning": {
+                    "$ref": "#/types/gcpx:bigquery/rangePartitioning:RangePartitioning",
+                    "description": "Range-based partitioning configuration. Mutually exclusive with timePartitioning."
+                },
+                "clusterings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Clustering columns (up to 4)."
+                },
+                "deletionProtection": {
+                    "type": "boolean",
+                    "description": "Whether deletion protection is enabled."
+                },
+                "expirationTime": {
+                    "type": "integer",
+                    "description": "Table expiration time in milliseconds since epoch."
+                },
+                "encryptionKmsKey": {
+                    "type": "string",
+                    "description": "Cloud KMS key for encryption."
+                },
+                "storageBillingModel": {
+                    "type": "string",
+                    "description": "Storage billing model: LOGICAL or PHYSICAL."
+                },
+                "maxStaleness": {
+                    "type": "string",
+                    "description": "Max staleness INTERVAL for materialized views (e.g., '0-0 0 4:0:0')."
+                },
+                "externalDataConfiguration": {
+                    "$ref": "#/types/gcpx:bigquery/externalDataConfiguration:ExternalDataConfiguration",
+                    "description": "External data configuration for BigLake / external tables. Mutually exclusive with view and materializedView."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "dataset",
+                "tableId"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string"
+                },
+                "tableId": {
+                    "type": "string"
+                },
+                "tableType": {
+                    "type": "string",
+                    "description": "Table type: TABLE, VIEW, MATERIALIZED_VIEW, or EXTERNAL."
+                },
+                "numRows": {
+                    "type": "integer",
+                    "description": "Number of rows in the table."
+                },
+                "creationTime": {
+                    "type": "integer",
+                    "description": "Table creation time in milliseconds since epoch."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Table description."
+                },
+                "friendlyName": {
+                    "type": "string",
+                    "description": "Friendly name for the table."
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Key-value labels."
+                },
+                "deletionProtection": {
+                    "type": "boolean",
+                    "description": "Whether deletion protection is enabled."
+                },
+                "clusterings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Clustering columns."
+                },
+                "storageBillingModel": {
+                    "type": "string",
+                    "description": "Storage billing model: LOGICAL or PHYSICAL."
+                },
+                "maxStaleness": {
+                    "type": "string",
+                    "description": "Max staleness INTERVAL for materialized views."
+                },
+                "expirationTime": {
+                    "type": "integer",
+                    "description": "Table expiration time in milliseconds since epoch."
+                },
+                "encryptionKmsKey": {
+                    "type": "string",
+                    "description": "Cloud KMS key for encryption."
+                },
+                "timePartitioning": {
+                    "$ref": "#/types/gcpx:bigquery/timePartitioning:TimePartitioning",
+                    "description": "Time-based partitioning configuration."
+                },
+                "rangePartitioning": {
+                    "$ref": "#/types/gcpx:bigquery/rangePartitioning:RangePartitioning",
+                    "description": "Range-based partitioning configuration."
+                },
+                "view": {
+                    "$ref": "#/types/gcpx:bigquery/viewDefinition:ViewDefinition",
+                    "description": "View definition."
+                },
+                "materializedView": {
+                    "$ref": "#/types/gcpx:bigquery/materializedViewDefinition:MaterializedViewDefinition",
+                    "description": "Materialized view definition."
+                },
+                "externalDataConfiguration": {
+                    "$ref": "#/types/gcpx:bigquery/externalDataConfiguration:ExternalDataConfiguration",
+                    "description": "External data configuration."
+                }
+            },
+            "required": [
+                "project",
+                "dataset",
+                "tableId",
+                "tableType"
+            ]
+        },
+        "gcpx:bigquery/dataset:Dataset": {
+            "description": "Manages BigQuery dataset lifecycle. Supports full CRUD with location, labels, billing model, and expiration settings.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "datasetId": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID."
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Geographic location (e.g., US, EU, northamerica-northeast1)."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Dataset description."
+                },
+                "friendlyName": {
+                    "type": "string",
+                    "description": "Friendly name for the dataset."
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Key-value labels."
+                },
+                "defaultTableExpirationMs": {
+                    "type": "integer",
+                    "description": "Default table expiration in milliseconds."
+                },
+                "defaultPartitionExpirationMs": {
+                    "type": "integer",
+                    "description": "Default partition expiration in milliseconds."
+                },
+                "storageBillingModel": {
+                    "type": "string",
+                    "description": "Storage billing model: LOGICAL or PHYSICAL."
+                },
+                "maxTimeTravelHours": {
+                    "type": "integer",
+                    "description": "Max time travel hours (0 or 48-168)."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "datasetId",
+                "location"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "datasetId": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "friendlyName": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "storageBillingModel": {
+                    "type": "string"
+                },
+                "creationTime": {
+                    "type": "integer",
+                    "description": "Dataset creation time in milliseconds since epoch."
+                },
+                "lastModifiedTime": {
+                    "type": "integer",
+                    "description": "Last modification time in milliseconds since epoch."
+                },
+                "etag": {
+                    "type": "string",
+                    "description": "Entity tag for optimistic concurrency."
+                }
+            },
+            "required": [
+                "project",
+                "datasetId",
+                "location",
+                "storageBillingModel"
+            ]
+        },
+        "gcpx:bigquery/routineFunction:RoutineFunction": {
+            "description": "Manages BigQuery routines (UDFs and stored procedures). Supports SQL and JavaScript languages with full CRUD lifecycle.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset ID."
+                },
+                "routineId": {
+                    "type": "string",
+                    "description": "Routine ID."
+                },
+                "routineType": {
+                    "type": "string",
+                    "description": "Routine type: SCALAR_FUNCTION, TABLE_VALUED_FUNCTION, or PROCEDURE."
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Routine language: SQL or JAVASCRIPT."
+                },
+                "definitionBody": {
+                    "type": "string",
+                    "description": "SQL expression or JavaScript code body."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Routine description."
+                },
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/types/gcpx:bigquery/routineArgument:RoutineArgument"
+                    },
+                    "description": "Routine arguments."
+                },
+                "returnType": {
+                    "type": "string",
+                    "description": "Return type (e.g., INT64, STRING). Required for functions."
+                },
+                "importedLibraries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "GCS URIs for JavaScript UDF libraries."
+                },
+                "determinismLevel": {
+                    "type": "string",
+                    "description": "Determinism level: DETERMINISM_LEVEL_UNSPECIFIED, DETERMINISTIC, or NOT_DETERMINISTIC."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "dataset",
+                "routineId",
+                "routineType",
+                "language",
+                "definitionBody"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string"
+                },
+                "routineId": {
+                    "type": "string"
+                },
+                "routineType": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "definitionBody": {
+                    "type": "string"
+                },
+                "creationTime": {
+                    "type": "integer",
+                    "description": "Routine creation time in milliseconds since epoch."
+                },
+                "lastModifiedTime": {
+                    "type": "integer",
+                    "description": "Last modification time in milliseconds since epoch."
+                },
+                "etag": {
+                    "type": "string",
+                    "description": "Entity tag for optimistic concurrency."
+                }
+            },
+            "required": [
+                "project",
+                "dataset",
+                "routineId",
+                "routineType",
+                "language",
+                "definitionBody"
+            ]
+        },
+        "gcpx:dbt/project:Project": {
+            "description": "Defines a dbt-style project with GCP project, dataset, sources, and declared model/macro names. Pure metadata resource \u2014 no GCP API calls. Outputs a context object consumed by Model and Macro resources.",
+            "inputProperties": {
+                "gcpProject": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "Default BigQuery dataset ID."
+                },
+                "sources": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/types/gcpx:dbt/sourceDefinition:SourceDefinition"
+                    },
+                    "description": "Named source definitions mapping to BigQuery datasets and tables."
+                },
+                "declaredModels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of all model names in this project (for DAG validation)."
+                },
+                "declaredMacros": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of all macro names in this project (for DAG validation)."
+                },
+                "vars": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Project-level variables for {{ var('name') }} substitution in model SQL."
+                }
+            },
+            "requiredInputs": [
+                "gcpProject",
+                "dataset"
+            ],
+            "properties": {
+                "gcpProject": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string"
+                },
+                "context": {
+                    "$ref": "#/types/gcpx:dbt/projectContext:ProjectContext",
+                    "description": "Project context output for consumption by Model resources."
+                }
+            },
+            "required": [
+                "gcpProject",
+                "dataset",
+                "context"
+            ]
+        },
+        "gcpx:dbt/macro:Macro": {
+            "description": "Defines a reusable SQL macro (parameterized SQL template). Pure metadata resource \u2014 no GCP API calls. Outputs a macroOutput consumed by Model resources.",
+            "inputProperties": {
+                "name": {
+                    "type": "string",
+                    "description": "Macro name (used as {{ name(...) }} in model SQL)."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Argument names for the macro."
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "SQL template body with {{ arg_name }} placeholders."
+                }
+            },
+            "requiredInputs": [
+                "name",
+                "sql"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "macroOutput": {
+                    "$ref": "#/types/gcpx:dbt/macroOutput:MacroOutput",
+                    "description": "Macro output for consumption by Model resources."
+                }
+            },
+            "required": [
+                "name",
+                "sql",
+                "macroOutput"
+            ]
+        },
+        "gcpx:dbt/model:Model": {
+            "description": "Defines a dbt-style SQL model. Resolves {{ ref() }}, {{ source() }}, {{ config() }}, and macro calls. For non-ephemeral materializations, executes DDL against BigQuery. Always replaces on any change.",
+            "inputProperties": {
+                "name": {
+                    "type": "string",
+                    "description": "Model name (matches {{ ref('name') }} in other models)."
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "SQL template with dbt-style {{ config() }}, {{ ref() }}, {{ source() }}, and macro calls."
+                },
+                "context": {
+                    "$ref": "#/types/gcpx:dbt/projectContext:ProjectContext",
+                    "description": "Project context from a gcpx:dbt/project:Project resource."
+                },
+                "modelRefs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/types/gcpx:dbt/modelOutput:ModelOutput"
+                    },
+                    "description": "Map of model name to ModelOutput for each {{ ref() }} dependency."
+                },
+                "macros": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/types/gcpx:dbt/macroOutput:MacroOutput"
+                    },
+                    "description": "Map of macro name to MacroOutput for each macro dependency."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "Optional pre-existing table ID from a gcpx:bigquery/table:Table resource. When provided, Model writes into the existing table (MERGE) instead of CREATE OR REPLACE, preserving table metadata."
+                },
+                "schema": {
+                    "type": "string",
+                    "description": "Optional schema fingerprint from a gcpx:bigquery/tableSchema:TableSchema resource. Creates an implicit dependency ensuring schema is applied before model writes data."
+                },
+                "options": {
+                    "$ref": "#/types/gcpx:dbt/tableOptions:TableOptions",
+                    "description": "When declared, YAML options become the authoritative source for table OPTIONS. Any option set in the SQL config block must also be declared here. Overrides SQL config values when both are present."
+                },
+                "maxBytesBilled": {
+                    "type": "integer",
+                    "description": "Cost governance: maximum bytes billed for this model's DDL and dry-run queries. BigQuery will reject queries that would scan more than this limit. Must be greater than 0 if set."
+                }
+            },
+            "requiredInputs": [
+                "name",
+                "sql",
+                "context"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "materialization": {
+                    "type": "string",
+                    "description": "Resolved materialization: table, view, materialized_view, ephemeral, or incremental."
+                },
+                "modelOutput": {
+                    "$ref": "#/types/gcpx:dbt/modelOutput:ModelOutput",
+                    "description": "Model output for consumption by downstream models and schedulers."
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "Clean table name (e.g., 'dim_customers'). Use ${model.tableId} for TableSchema composition."
+                },
+                "schedulerSql": {
+                    "type": "string",
+                    "description": "MERGE SQL for incremental models, DDL for table/view. Use ${model.schedulerSql} for SqlJob."
+                },
+                "resolvedSql": {
+                    "type": "string",
+                    "description": "Resolved SELECT SQL with all refs/sources/macros expanded. Use ${model.resolvedSql} for Snapshot."
+                }
+            },
+            "required": [
+                "name",
+                "sql",
+                "materialization",
+                "modelOutput"
+            ]
+        },
+        "gcpx:scheduler/sqlJob:SqlJob": {
+            "description": "Schedules recurring BigQuery SQL execution via Cloud Scheduler + GCP Workflows. Creates a GCP Workflow (containing the SQL) and a Cloud Scheduler job (triggering the workflow on a cron schedule). Service account requires roles/workflows.invoker and roles/bigquery.jobUser.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "region": {
+                    "type": "string",
+                    "description": "GCP region for Workflow and Scheduler resources."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Job name (used to derive workflow and scheduler resource names)."
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "SQL to execute on each scheduled run. Typically from ${model.modelOutput.resolvedDdl}."
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron expression (e.g., '0 5 * * *' for daily at 5 AM)."
+                },
+                "timeZone": {
+                    "type": "string",
+                    "description": "IANA time zone (e.g., 'America/Toronto'). Defaults to 'UTC'.",
+                    "default": "UTC"
+                },
+                "serviceAccount": {
+                    "type": "string",
+                    "description": "Service account email for Workflow execution and Scheduler authentication."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional description for the scheduler job."
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "Whether the scheduler job starts in paused state."
+                },
+                "retryCount": {
+                    "type": "integer",
+                    "description": "Number of retries on failure (0-5). Defaults to 3."
+                },
+                "attemptDeadline": {
+                    "type": "string",
+                    "description": "Deadline per attempt (e.g., '600s'). Defaults to '600s'."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "region",
+                "name",
+                "sql",
+                "schedule",
+                "serviceAccount"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "string"
+                },
+                "serviceAccount": {
+                    "type": "string"
+                },
+                "workflowName": {
+                    "type": "string",
+                    "description": "Full GCP Workflow resource name."
+                },
+                "schedulerJobName": {
+                    "type": "string",
+                    "description": "Full Cloud Scheduler job resource name."
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Scheduler job state: ENABLED, PAUSED, DISABLED, or UPDATE_FAILED."
+                },
+                "nextRunTime": {
+                    "type": "string",
+                    "description": "Next scheduled run time (RFC 3339)."
+                }
+            },
+            "required": [
+                "project",
+                "region",
+                "name",
+                "sql",
+                "schedule",
+                "timeZone",
+                "serviceAccount",
+                "workflowName",
+                "schedulerJobName",
+                "state"
+            ]
+        },
+        "gcpx:dbt/snapshot:Snapshot": {
+            "description": "Self-contained SCD Type 2 snapshot resource. Creates a snapshot table with SCD columns (dbt_scd_id, dbt_updated_at, dbt_valid_from, dbt_valid_to), a GCP Workflow with multi-step MERGE logic, and a Cloud Scheduler job. On delete, scheduler and workflow are removed but the snapshot table is preserved.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "region": {
+                    "type": "string",
+                    "description": "GCP region for Workflow and Scheduler resources."
+                },
+                "dataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset for the snapshot table."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Snapshot name (used as table name and to derive workflow/scheduler names)."
+                },
+                "sourceSql": {
+                    "type": "string",
+                    "description": "Source SQL query. Typically from ${model.resolvedSql}."
+                },
+                "uniqueKey": {
+                    "type": "string",
+                    "description": "Column that uniquely identifies rows in the source."
+                },
+                "strategy": {
+                    "type": "string",
+                    "description": "Snapshot strategy. Currently only 'timestamp' is supported.",
+                    "default": "timestamp"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "description": "Timestamp column used to detect changes."
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron expression for snapshot refresh (e.g., '0 2 * * *')."
+                },
+                "timeZone": {
+                    "type": "string",
+                    "description": "IANA time zone. Defaults to 'UTC'.",
+                    "default": "UTC"
+                },
+                "serviceAccount": {
+                    "type": "string",
+                    "description": "Service account email for Workflow execution and Scheduler authentication."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional description."
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "Whether the scheduler starts in paused state."
+                },
+                "invalidateHardDeletes": {
+                    "type": "boolean",
+                    "description": "Whether to invalidate rows that no longer appear in the source query."
+                },
+                "autoOptimize": {
+                    "type": "boolean",
+                    "description": "When true (default), adds PARTITION BY DATE(dbt_valid_from) and CLUSTER BY unique_key to the snapshot table.",
+                    "default": true
+                },
+                "sourceSchema": {
+                    "type": "string",
+                    "description": "Schema fingerprint from a TableSchema resource. When this changes, the snapshot table is evolved via ALTER TABLE ADD COLUMN to match the source."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "region",
+                "dataset",
+                "name",
+                "sourceSql",
+                "uniqueKey",
+                "updatedAt",
+                "schedule",
+                "serviceAccount"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sourceSql": {
+                    "type": "string"
+                },
+                "uniqueKey": {
+                    "type": "string"
+                },
+                "strategy": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "string"
+                },
+                "serviceAccount": {
+                    "type": "string"
+                },
+                "tableId": {
+                    "type": "string",
+                    "description": "Snapshot table name (same as name)."
+                },
+                "snapshotTable": {
+                    "type": "string",
+                    "description": "Fully-qualified snapshot table reference (project.dataset.name)."
+                },
+                "workflowName": {
+                    "type": "string",
+                    "description": "Full GCP Workflow resource name."
+                },
+                "schedulerJobName": {
+                    "type": "string",
+                    "description": "Full Cloud Scheduler job resource name."
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Scheduler job state: ENABLED, PAUSED, or PREVIEW."
+                },
+                "nextRunTime": {
+                    "type": "string",
+                    "description": "Next scheduled run time (RFC 3339)."
+                },
+                "autoOptimize": {
+                    "type": "boolean",
+                    "description": "Whether PARTITION BY and CLUSTER BY were applied to the snapshot table."
+                },
+                "sourceSchema": {
+                    "type": "string",
+                    "description": "Schema fingerprint from a TableSchema resource."
+                }
+            },
+            "required": [
+                "project",
+                "region",
+                "dataset",
+                "name",
+                "sourceSql",
+                "uniqueKey",
+                "strategy",
+                "updatedAt",
+                "schedule",
+                "timeZone",
+                "serviceAccount",
+                "tableId",
+                "snapshotTable",
+                "workflowName",
+                "schedulerJobName",
+                "state"
+            ]
+        },
+        "gcpx:dataproc/ingestJob:IngestJob": {
+            "description": "A Dataproc Serverless ingest job that reads from an on-prem database via JDBC and writes to GCS or BigQuery on a schedule.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "region": {
+                    "type": "string",
+                    "description": "GCP region for Dataproc and Scheduler resources."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Unique job name."
+                },
+                "databaseType": {
+                    "type": "string",
+                    "description": "Source database type: oracle, mssql, mysql, postgres."
+                },
+                "connectionString": {
+                    "type": "string",
+                    "description": "JDBC connection URI."
+                },
+                "secret": {
+                    "type": "string",
+                    "description": "Secret Manager secret name for database credentials."
+                },
+                "query": {
+                    "type": "string",
+                    "description": "SQL pushdown query to execute on the source database."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Destination type: gcs or bigquery."
+                },
+                "landingBucket": {
+                    "type": "string",
+                    "description": "GCS bucket for landing data (required if destination=gcs)."
+                },
+                "destProject": {
+                    "type": "string",
+                    "description": "Destination GCP project (defaults to project if destination=bigquery)."
+                },
+                "destDataset": {
+                    "type": "string",
+                    "description": "BigQuery dataset (required if destination=bigquery)."
+                },
+                "destTable": {
+                    "type": "string",
+                    "description": "BigQuery table (required if destination=bigquery)."
+                },
+                "imageUri": {
+                    "type": "string",
+                    "description": "Container image URI for the Spark job."
+                },
+                "scriptUri": {
+                    "type": "string",
+                    "description": "GCS path to the main Python script (gs://...)."
+                },
+                "jarUris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "JDBC driver JAR URIs."
+                },
+                "runtimeVersion": {
+                    "type": "string",
+                    "description": "Dataproc Serverless runtime version.",
+                    "default": "2.2"
+                },
+                "serviceAccount": {
+                    "type": "string",
+                    "description": "Service account email for Dataproc and Scheduler."
+                },
+                "stagingBucket": {
+                    "type": "string",
+                    "description": "GCS bucket for Dataproc staging."
+                },
+                "processBucket": {
+                    "type": "string",
+                    "description": "GCS bucket for processing artifacts."
+                },
+                "subnetworkUri": {
+                    "type": "string",
+                    "description": "VPC subnetwork URI."
+                },
+                "networkTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Network tags for the Spark executors.",
+                    "default": [
+                        "spark"
+                    ]
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron schedule expression."
+                },
+                "timeZone": {
+                    "type": "string",
+                    "description": "IANA time zone.",
+                    "default": "UTC"
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "Whether the scheduler job is paused."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Human-readable description."
+                },
+                "retryCount": {
+                    "type": "integer",
+                    "description": "Number of retries (0-5)."
+                },
+                "attemptDeadline": {
+                    "type": "string",
+                    "description": "Attempt deadline (e.g. '600s')."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "region",
+                "name",
+                "databaseType",
+                "connectionString",
+                "secret",
+                "query",
+                "destination",
+                "imageUri",
+                "scriptUri",
+                "serviceAccount",
+                "stagingBucket",
+                "processBucket",
+                "subnetworkUri",
+                "schedule"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "databaseType": {
+                    "type": "string"
+                },
+                "connectionString": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "landingBucket": {
+                    "type": "string"
+                },
+                "destProject": {
+                    "type": "string"
+                },
+                "destDataset": {
+                    "type": "string"
+                },
+                "destTable": {
+                    "type": "string"
+                },
+                "imageUri": {
+                    "type": "string"
+                },
+                "scriptUri": {
+                    "type": "string"
+                },
+                "jarUris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "runtimeVersion": {
+                    "type": "string"
+                },
+                "serviceAccount": {
+                    "type": "string"
+                },
+                "stagingBucket": {
+                    "type": "string"
+                },
+                "processBucket": {
+                    "type": "string"
+                },
+                "subnetworkUri": {
+                    "type": "string"
+                },
+                "networkTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "string"
+                },
+                "paused": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "workflowName": {
+                    "type": "string",
+                    "description": "Full GCP Workflow resource name."
+                },
+                "schedulerJobName": {
+                    "type": "string",
+                    "description": "Full Cloud Scheduler job name."
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Scheduler job state."
+                },
+                "nextRunTime": {
+                    "type": "string",
+                    "description": "Next scheduled run time."
+                }
+            },
+            "required": [
+                "project",
+                "region",
+                "name",
+                "databaseType",
+                "connectionString",
+                "secret",
+                "query",
+                "destination",
+                "imageUri",
+                "scriptUri",
+                "serviceAccount",
+                "stagingBucket",
+                "processBucket",
+                "subnetworkUri",
+                "schedule",
+                "timeZone",
+                "runtimeVersion",
+                "workflowName",
+                "schedulerJobName",
+                "state"
+            ]
+        },
+        "gcpx:dataproc/exportJob:ExportJob": {
+            "description": "A Dataproc Serverless export job that reads from BigQuery and writes to an on-prem database via JDBC on a schedule.",
+            "inputProperties": {
+                "project": {
+                    "type": "string",
+                    "description": "GCP project ID."
+                },
+                "region": {
+                    "type": "string",
+                    "description": "GCP region for Dataproc and Scheduler resources."
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Unique job name."
+                },
+                "sourceDataset": {
+                    "type": "string",
+                    "description": "BigQuery source dataset."
+                },
+                "sourceTable": {
+                    "type": "string",
+                    "description": "BigQuery source table."
+                },
+                "databaseType": {
+                    "type": "string",
+                    "description": "Destination database type: oracle, mssql, mysql, postgres."
+                },
+                "connectionString": {
+                    "type": "string",
+                    "description": "JDBC connection URI."
+                },
+                "secret": {
+                    "type": "string",
+                    "description": "Secret Manager secret name for database credentials."
+                },
+                "destTable": {
+                    "type": "string",
+                    "description": "On-prem destination table (e.g. 'schema.dbo.table')."
+                },
+                "imageUri": {
+                    "type": "string",
+                    "description": "Container image URI for the Spark job."
+                },
+                "scriptUri": {
+                    "type": "string",
+                    "description": "GCS path to the main Python script."
+                },
+                "jarUris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "JDBC driver JAR URIs."
+                },
+                "runtimeVersion": {
+                    "type": "string",
+                    "description": "Dataproc Serverless runtime version.",
+                    "default": "2.2"
+                },
+                "serviceAccount": {
+                    "type": "string",
+                    "description": "Service account email."
+                },
+                "stagingBucket": {
+                    "type": "string",
+                    "description": "GCS bucket for staging."
+                },
+                "processBucket": {
+                    "type": "string",
+                    "description": "GCS bucket for processing."
+                },
+                "subnetworkUri": {
+                    "type": "string",
+                    "description": "VPC subnetwork URI."
+                },
+                "networkTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Network tags.",
+                    "default": [
+                        "spark"
+                    ]
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Cron schedule expression."
+                },
+                "timeZone": {
+                    "type": "string",
+                    "description": "IANA time zone.",
+                    "default": "UTC"
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "Whether the scheduler job is paused."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Human-readable description."
+                },
+                "retryCount": {
+                    "type": "integer",
+                    "description": "Number of retries (0-5)."
+                },
+                "attemptDeadline": {
+                    "type": "string",
+                    "description": "Attempt deadline (e.g. '600s')."
+                }
+            },
+            "requiredInputs": [
+                "project",
+                "region",
+                "name",
+                "sourceDataset",
+                "sourceTable",
+                "databaseType",
+                "connectionString",
+                "secret",
+                "destTable",
+                "imageUri",
+                "scriptUri",
+                "serviceAccount",
+                "stagingBucket",
+                "processBucket",
+                "subnetworkUri",
+                "schedule"
+            ],
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sourceDataset": {
+                    "type": "string"
+                },
+                "sourceTable": {
+                    "type": "string"
+                },
+                "databaseType": {
+                    "type": "string"
+                },
+                "connectionString": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                },
+                "destTable": {
+                    "type": "string"
+                },
+                "imageUri": {
+                    "type": "string"
+                },
+                "scriptUri": {
+                    "type": "string"
+                },
+                "jarUris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "runtimeVersion": {
+                    "type": "string"
+                },
+                "serviceAccount": {
+                    "type": "string"
+                },
+                "stagingBucket": {
+                    "type": "string"
+                },
+                "processBucket": {
+                    "type": "string"
+                },
+                "subnetworkUri": {
+                    "type": "string"
+                },
+                "networkTags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timeZone": {
+                    "type": "string"
+                },
+                "paused": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "workflowName": {
+                    "type": "string",
+                    "description": "Full GCP Workflow resource name."
+                },
+                "schedulerJobName": {
+                    "type": "string",
+                    "description": "Full Cloud Scheduler job name."
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Scheduler job state."
+                },
+                "nextRunTime": {
+                    "type": "string",
+                    "description": "Next scheduled run time."
+                }
+            },
+            "required": [
+                "project",
+                "region",
+                "name",
+                "sourceDataset",
+                "sourceTable",
+                "databaseType",
+                "connectionString",
+                "secret",
+                "destTable",
+                "imageUri",
+                "scriptUri",
+                "serviceAccount",
+                "stagingBucket",
+                "processBucket",
+                "subnetworkUri",
+                "schedule",
+                "timeZone",
+                "runtimeVersion",
+                "workflowName",
+                "schedulerJobName",
+                "state"
+            ]
+        }
+    }
+}

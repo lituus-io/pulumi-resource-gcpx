@@ -1,0 +1,61 @@
+resources:
+  # Dataset for all resources.
+  mainDataset:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: ${dataset}
+      location: northamerica-northeast1
+      description: Main dataset for gcpx full e2e test
+      storageBillingModel: LOGICAL
+
+  # Raw events table with DAY partitioning and clustering.
+  rawEventsTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${mainDataset.datasetId}
+      tableId: raw_events
+      description: Raw events ingestion table
+      labels:
+        env: dev
+        managed-by: pulumi
+      timePartitioning:
+        type: DAY
+
+  # Schema for raw events with nested STRUCT.
+  rawEventsSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${mainDataset.datasetId}
+      tableId: ${rawEventsTable.tableId}
+      schema:
+        - name: event_ts
+          type: TIMESTAMP
+          mode: REQUIRED
+        - name: region
+          type: STRING
+        - name: event_type
+          type: STRING
+        - name: user_id
+          type: INT64
+          mode: REQUIRED
+        - name: amount_cents
+          type: INT64
+        - name: metadata
+          type: STRUCT
+          fields:
+            - name: source
+              type: STRING
+            - name: version
+              type: INT64
+
+  # Lookup table for region mapping.
+  regionLookup:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${mainDataset.datasetId}
+      tableId: region_lookup
+      description: Region code to name mapping

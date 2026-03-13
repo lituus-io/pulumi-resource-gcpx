@@ -1,0 +1,8 @@
+name: gcpx-dbt-multifile
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+outputs:
+  modelTableRef: ${stgEvents.modelOutput.tableRef}
+  modelMaterialization: ${stgEvents.materialization}

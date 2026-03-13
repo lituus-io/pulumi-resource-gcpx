@@ -1,0 +1,5 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-dbt-ref-chain:gcpProject: my-gcp-project
+  project: my-gcp-project
+encryptionsalt: v1:fH7ENooLxU8=:v1:eSTYMxycqHnkoQTy:9I+utitUbb/AhhcyaNiyWmJ2CVApKQ==

@@ -1,0 +1,45 @@
+resources:
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${dataset}
+      sources:
+        raw:
+          dataset: ${dataset}
+          tables:
+            - raw_events
+      declaredModels:
+        - stg_orders
+        - stg_users
+        - mart_revenue
+      declaredMacros:
+        - cents_to_dollars
+
+  centsToDollars:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: cents_to_dollars
+      args:
+        - amount_cents
+      sql:
+        fn::readFile: sql/cents_to_dollars.sql
+
+  # SQL UDF in BigQuery for reuse across queries.
+  centsToDollarsUdf:
+    type: gcpx:bigquery/routineFunction:RoutineFunction
+    properties:
+      project: ${gcpProject}
+      dataset: ${dataset}
+      routineId: cents_to_dollars
+      routineType: SCALAR_FUNCTION
+      language: SQL
+      definitionBody: "amount_cents / 100.0"
+      description: Convert cents to dollars
+      arguments:
+        - name: amount_cents
+          dataType: INT64
+      returnType: FLOAT64
+    options:
+      dependsOn:
+        - ${mainDataset}

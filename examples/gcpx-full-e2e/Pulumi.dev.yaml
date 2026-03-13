@@ -1,0 +1,6 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-full-e2e:gcpProject: my-gcp-project
+  gcpx-full-e2e:serviceAccount: sa@my-gcp-project.iam.gserviceaccount.com
+  project: my-gcp-project
+encryptionsalt: v1:J1YK6nc54Jk=:v1:sdQkZ9CSCrZGcgM+:vBVB0gyw8Y21QXlz4RWhw4CgSO9qPA==

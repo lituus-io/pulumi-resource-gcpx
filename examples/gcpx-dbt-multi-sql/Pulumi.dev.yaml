@@ -1,0 +1,5 @@
+config:
+  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  gcpx-dbt-multi-sql:gcpProject: my-gcp-project
+  project: my-gcp-project
+encryptionsalt: v1:QlTcOrb+M3o=:v1:vvXclt7ze0b1aulN:YLnMs77wxEjAMzYqrjGs3XSAsICtxw==

@@ -1,0 +1,1 @@
+SAFE_DIVIDE({{ numerator }}, {{ denominator }})

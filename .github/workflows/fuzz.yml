@@ -1,0 +1,66 @@
+name: Fuzz
+
+on:
+  schedule:
+    - cron: '0 3 * * 3'  # Weekly on Wednesday at 3 AM UTC
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Fuzz duration per target (seconds)'
+        default: '60'
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  FUZZ_DURATION: ${{ inputs.duration || '60' }}
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_scanner
+          - fuzz_config_iter
+          - fuzz_normalize_type
+          - fuzz_expand_macros
+          - fuzz_workflow_yaml
+          - fuzz_resolve
+          - fuzz_snapshot_ddl
+          - fuzz_preprocess
+          - fuzz_snapshot_workflow
+          - fuzz_dataproc_workflow
+          - fuzz_database_type
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fuzz-${{ matrix.target }}
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Run fuzzer
+        working-directory: fuzz
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=${{ env.FUZZ_DURATION }}
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: fuzz/artifacts/${{ matrix.target }}/

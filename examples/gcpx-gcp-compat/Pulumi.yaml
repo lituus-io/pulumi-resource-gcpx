@@ -1,0 +1,52 @@
+name: gcpx-gcp-compat
+runtime: yaml
+description: Cross-provider compatibility test — gcpx dbt model + standard gcp GCS bucket
+config:
+  gcpProject:
+    type: string
+  region:
+    type: string
+    default: northamerica-northeast1
+resources:
+  # --- Standard Pulumi GCP provider: GCS bucket ---
+  landingBucket:
+    type: gcp:storage/bucket:Bucket
+    properties:
+      name: ${gcpProject}-gcpx-compat-test
+      location: ${region}
+      project: ${gcpProject}
+      forceDestroy: true
+      uniformBucketLevelAccess: true
+
+  # --- gcpx provider: BigQuery dataset ---
+  testDataset:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: gcpx_compat_test
+      location: ${region}
+
+  # --- gcpx provider: dbt project + model ---
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${testDataset.datasetId}
+
+  stgLanding:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_landing
+      sql: |
+        SELECT
+          '${landingBucket.name}' AS bucket_name,
+          '${landingBucket.url}' AS bucket_url,
+          CURRENT_TIMESTAMP() AS loaded_at
+      context: ${dbtProject.context}
+
+outputs:
+  bucketName: ${landingBucket.name}
+  bucketUrl: ${landingBucket.url}
+  datasetId: ${testDataset.datasetId}
+  modelTableRef: ${stgLanding.modelOutput.tableRef}
+  materialization: ${stgLanding.materialization}

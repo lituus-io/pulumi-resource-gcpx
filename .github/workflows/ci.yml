@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUSTFLAGS: "-D warnings"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace -- -D warnings
+
+  test-linux-x86:
+    name: Test (Linux x86_64)
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib
+
+  test-linux-arm:
+    name: Test (Linux ARM64)
+    runs-on: ubuntu-24.04-arm
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib
+
+  test-macos-arm:
+    name: Test (macOS ARM64)
+    runs-on: macos-15
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib
+
+  test-windows:
+    name: Test (Windows x86_64)
+    runs-on: windows-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        shell: pwsh
+        run: New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\..\pulumi-rs-yaml" -Target "$env:GITHUB_WORKSPACE\_deps\pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib
+
+  python-test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build binary and install Python package
+        run: |
+          cd python
+          bash build_binary.sh
+          pip install -e ".[test]"
+      - name: Run Python tests
+        run: pytest python/tests/ -v
+
+  cross-check:
+    name: Cross-compile check
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lituus-io/pulumi-rs-yaml
+          path: _deps/pulumi-rs-yaml
+      - name: Link dependency for Cargo path resolution
+        run: ln -s "$GITHUB_WORKSPACE/_deps/pulumi-rs-yaml" "$GITHUB_WORKSPACE/../pulumi-rs-yaml"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl, aarch64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-zigbuild
+        run: pip install cargo-zigbuild
+      - name: Check musl x86_64
+        run: cargo zigbuild --target x86_64-unknown-linux-musl --release
+      - name: Check musl aarch64
+        run: cargo zigbuild --target aarch64-unknown-linux-musl --release

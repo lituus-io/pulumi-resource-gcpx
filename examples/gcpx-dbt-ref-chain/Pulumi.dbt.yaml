@@ -1,0 +1,92 @@
+resources:
+  # Source tables - must exist before staging views reference them.
+  ordersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${rcDataset.datasetId}
+      tableId: orders
+
+  ordersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${rcDataset.datasetId}
+      tableId: ${ordersTable.tableId}
+      schema:
+        - name: order_id
+          type: INT64
+          mode: REQUIRED
+        - name: user_id
+          type: INT64
+          mode: REQUIRED
+        - name: amount_cents
+          type: INT64
+        - name: status
+          type: STRING
+        - name: created_at
+          type: TIMESTAMP
+
+  usersTable:
+    type: gcpx:bigquery/table:Table
+    properties:
+      project: ${gcpProject}
+      dataset: ${rcDataset.datasetId}
+      tableId: users
+
+  usersSchema:
+    type: gcpx:bigquery/tableSchema:TableSchema
+    properties:
+      project: ${gcpProject}
+      dataset: ${rcDataset.datasetId}
+      tableId: ${usersTable.tableId}
+      schema:
+        - name: user_id
+          type: INT64
+          mode: REQUIRED
+        - name: email
+          type: STRING
+        - name: region
+          type: STRING
+        - name: created_at
+          type: TIMESTAMP
+
+  dbtProject:
+    type: gcpx:dbt/project:Project
+    properties:
+      gcpProject: ${gcpProject}
+      dataset: ${dataset}
+      sources:
+        raw:
+          dataset: ${dataset}
+          tables:
+            - orders
+            - users
+      declaredModels:
+        - stg_orders
+        - stg_users
+        - int_enriched
+        - int_joined
+        - mart_revenue
+      declaredMacros:
+        - safe_divide
+        - cents_to_dollars
+
+  safeDivide:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: safe_divide
+      args:
+        - numerator
+        - denominator
+      sql:
+        fn::readFile: sql/safe_divide.sql
+
+  centsToDollars:
+    type: gcpx:dbt/macro:Macro
+    properties:
+      name: cents_to_dollars
+      args:
+        - amount_cents
+      sql:
+        fn::readFile: sql/cents_to_dollars.sql

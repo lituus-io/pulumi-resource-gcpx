@@ -1,0 +1,21 @@
+name: gcpx-dbt-ref-chain
+runtime: yaml
+config:
+  gcpProject:
+    type: string
+  dataset:
+    type: string
+    default: gcpx_rc_test
+resources:
+  rcDataset:
+    type: gcpx:bigquery/dataset:Dataset
+    properties:
+      project: ${gcpProject}
+      datasetId: ${dataset}
+      location: northamerica-northeast1
+      description: Dataset for dbt ref chain test
+outputs:
+  stgOrdersTableRef: ${stgOrders.modelOutput.tableRef}
+  stgUsersTableRef: ${stgUsers.modelOutput.tableRef}
+  martRevenueTableRef: ${martRevenue.modelOutput.tableRef}
+  martRevenueResolvedSql: ${martRevenue.modelOutput.resolvedSql}

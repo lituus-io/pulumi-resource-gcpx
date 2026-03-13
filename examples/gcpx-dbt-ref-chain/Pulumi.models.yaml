@@ -1,0 +1,62 @@
+resources:
+  # Staging: orders (view)
+  stgOrders:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_orders
+      sql:
+        fn::readFile: sql/stg_orders.sql
+      context: ${dbtProject.context}
+    options:
+      dependsOn:
+        - ${ordersSchema}
+
+  # Staging: users (view)
+  stgUsers:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: stg_users
+      sql:
+        fn::readFile: sql/stg_users.sql
+      context: ${dbtProject.context}
+    options:
+      dependsOn:
+        - ${usersSchema}
+
+  # Intermediate: enriched orders with dollar amounts (ephemeral)
+  intEnriched:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: int_enriched
+      sql:
+        fn::readFile: sql/int_enriched.sql
+      context: ${dbtProject.context}
+      macros:
+        cents_to_dollars: ${centsToDollars.macroOutput}
+      modelRefs:
+        stg_orders: ${stgOrders.modelOutput}
+
+  # Intermediate: joined orders + users (ephemeral)
+  intJoined:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: int_joined
+      sql:
+        fn::readFile: sql/int_joined.sql
+      context: ${dbtProject.context}
+      modelRefs:
+        int_enriched: ${intEnriched.modelOutput}
+        stg_users: ${stgUsers.modelOutput}
+
+  # Mart: revenue summary (table)
+  martRevenue:
+    type: gcpx:dbt/model:Model
+    properties:
+      name: mart_revenue
+      sql:
+        fn::readFile: sql/mart_revenue.sql
+      context: ${dbtProject.context}
+      macros:
+        safe_divide: ${safeDivide.macroOutput}
+      modelRefs:
+        int_joined: ${intJoined.modelOutput}

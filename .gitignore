@@ -1,0 +1,12 @@
+/target/
+Cargo.lock
+*.swp
+*.swo
+.DS_Store
+/fuzz/target/
+/fuzz/corpus/
+python/python/pulumi_resource_gcpx/bin/
+python/dist/
+*.egg-info/
+__pycache__/
+.bli/

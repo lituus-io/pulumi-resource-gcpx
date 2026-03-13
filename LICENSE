@@ -1,0 +1,29 @@
+Copyright (c) 2024-2026 Lituus-io. All rights reserved.
+
+Author: terekete <spicyzhug@gmail.com>
+
+This software is dual-licensed:
+
+1. OPEN SOURCE LICENSE (AGPL-3.0-or-later)
+
+   You may use, modify, and distribute this software under the terms
+   of the GNU Affero General Public License, version 3 or later
+   (AGPL-3.0-or-later), as published by the Free Software Foundation.
+
+   This means:
+   - You may use the software freely for any purpose.
+   - You may modify and redistribute the software.
+   - If you run a modified version of this software as a network service,
+     you must make the complete source code of your modified version
+     available to users of that service under the AGPL-3.0-or-later.
+   - Any derivative work must also be licensed under AGPL-3.0-or-later.
+
+   Full license text: https://www.gnu.org/licenses/agpl-3.0.html
+
+2. COMMERCIAL LICENSE
+
+   For use in proprietary or closed-source software, a commercial
+   license is available. The commercial license permits use without
+   the copyleft requirements of the AGPL.
+
+   Contact: spicyzhug@gmail.com
