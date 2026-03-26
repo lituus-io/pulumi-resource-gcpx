@@ -178,6 +178,7 @@ jobs:
 
       - name: Build wheel
         working-directory: python
+        shell: bash
         run: |
           python -m build --wheel \
             -C="--build-option=--plat-name=${{ matrix.platform.plat-name }}" \
