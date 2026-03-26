@@ -1,5 +1,5 @@
 config:
-  builder: sa@my-gcp-project.iam.gserviceaccount.com
+  builder: terraform@spacy-muffin-lab-5a292e.iam.gserviceaccount.com
   gcpx-dbt-model-crud:gcpProject: my-gcp-project
-  project: my-gcp-project
+  project: spacy-muffin-lab-5a292e
 encryptionsalt: v1:zrVyzaKWBkM=:v1:6dFVObvSsq4wr3gc:/6d5eI8XabHENsTNUcY7YzGAyeyDcw==
